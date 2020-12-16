@@ -1,0 +1,65 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - master
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Set up Python 3
+        uses: actions/setup-python@v2
+        with:
+          python-version: "3.x"
+
+      - name: Install test dependencies
+        run: pip3 install yamllint ansible-lint
+
+      - name: Lint code
+        run: |
+          yamllint .
+          ansible-lint
+
+  molecule:
+    name: Molecule
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest]
+        scenario: [default]
+        distro:
+          - diodonfrost/ansible-archlinux:latest
+          - geerlingguy/docker-centos8-ansible:latest
+          - geerlingguy/docker-debian10-ansible:latest
+          - geerlingguy/docker-fedora33-ansible:latest
+          - diodonfrost/ansible-opensuse:leap
+          - geerlingguy/docker-ubuntu2004-ansible:latest
+        include:
+          - os: macos-latest
+            scenario: delegated-local
+            distro: macos
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Set up Python 3
+        uses: actions/setup-python@v2
+        with:
+          python-version: "3.x"
+
+      - name: Install test dependencies
+        run: pip3 install ansible molecule[docker] docker
+
+      - name: Run Molecule tests
+        run: molecule test --scenario-name ${{ matrix.scenario }}
+        env:
+          PY_COLORS: "1"
+          ANSIBLE_FORCE_COLOR: "1"
+          MOLECULE_DISTRO: ${{ matrix.distro }}
